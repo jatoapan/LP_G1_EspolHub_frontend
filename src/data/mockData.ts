@@ -1,17 +1,43 @@
+import {
+  BookOpen,
+  Laptop,
+  Shirt,
+  Dumbbell,
+  Armchair,
+  Wrench,
+  Music,
+  Bike,
+  Utensils,
+  Package,
+  LucideIcon,
+} from "lucide-react";
+
+// Category to Icon Mapping
+export const categoryIcons: Record<string, LucideIcon> = {
   "Libros y Apuntes": BookOpen,
-  "Electrónica": Laptop,
+  Electrónica: Laptop,
   "Ropa y Accesorios": Shirt,
-  "Deportes": Dumbbell,
-  "Muebles": Armchair,
-  "Servicios": Wrench,
+  Deportes: Dumbbell,
+  Muebles: Armchair,
+  Servicios: Wrench,
   "Instrumentos Musicales": Music,
-  "Vehículos": Bike,
+  Vehículos: Bike,
   "Hogar y Cocina": Utensils,
-  "Otros": Package,
+  Otros: Package,
 };
 
 // Backend Constants (Enums)
-export const FACULTIES = ['FIEC', 'FCNM', 'FIMCP', 'FIMCBOR', 'FCSH', 'FADCOM', 'ESPAE', 'FCV', 'FICT'] as const;
+export const FACULTIES = [
+  "FIEC",
+  "FCNM",
+  "FIMCP",
+  "FIMCBOR",
+  "FCSH",
+  "FADCOM",
+  "ESPAE",
+  "FCV",
+  "FICT",
+] as const;
 
 export const CONDITIONS = {
   new_item: "Nuevo",
@@ -28,18 +54,18 @@ export const CONDITION_COLORS = {
 } as const;
 
 export const SORT_OPTIONS = [
-  { value: 'recent', label: 'Más Recientes' },
-  { value: 'popular', label: 'Populares' },
-  { value: 'price_asc', label: 'Precio: Menor a Mayor' },
-  { value: 'price_desc', label: 'Precio: Mayor a Menor' },
+  { value: "recent", label: "Más Recientes" },
+  { value: "popular", label: "Populares" },
+  { value: "price_asc", label: "Precio: Menor a Mayor" },
+  { value: "price_desc", label: "Precio: Mayor a Menor" },
 ] as const;
 
 export const CATEGORIES = Object.keys(categoryIcons);
 
 // Types
-export type Faculty = typeof FACULTIES[number];
+export type Faculty = (typeof FACULTIES)[number];
 export type ConditionKey = keyof typeof CONDITIONS;
-export type ItemStatus = 'active' | 'reserved' | 'sold';
+export type ItemStatus = "active" | "reserved" | "sold";
 
 export interface Seller {
   id: number;
@@ -75,7 +101,8 @@ export const mockSellers: Seller[] = [
     email: "jperez@espol.edu.ec",
     phone: "0991234567",
     faculty: "FIEC",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
     isVerified: true,
     joinedDate: "2023-03-15",
   },
@@ -85,7 +112,8 @@ export const mockSellers: Seller[] = [
     email: "msantos@espol.edu.ec",
     phone: "0987654321",
     faculty: "FCNM",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
     isVerified: true,
     joinedDate: "2023-06-20",
   },
@@ -95,7 +123,8 @@ export const mockSellers: Seller[] = [
     email: "cdelgado@espol.edu.ec",
     phone: "0998765432",
     faculty: "FIMCP",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
     isVerified: false,
     joinedDate: "2024-01-10",
   },
@@ -105,7 +134,8 @@ export const mockSellers: Seller[] = [
     email: "rmendoza@espol.edu.ec",
     phone: "0976543210",
     faculty: "FCSH",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
     isVerified: true,
     joinedDate: "2022-11-05",
   },
@@ -116,8 +146,9 @@ export const mockItems: Item[] = [
   {
     id: 1,
     title: "Cálculo de Thomas 14va Edición",
-    description: "Libro en excelente estado, sin subrayados ni anotaciones. Ideal para estudiantes de primer año de ingeniería. Incluye código de acceso online sin usar.",
-    price: 45.00,
+    description:
+      "Libro en excelente estado, sin subrayados ni anotaciones. Ideal para estudiantes de primer año de ingeniería. Incluye código de acceso online sin usar.",
+    price: 45.0,
     category: "Libros y Apuntes",
     condition: "like_new",
     location: "Campus Gustavo Galindo",
@@ -133,8 +164,9 @@ export const mockItems: Item[] = [
   {
     id: 2,
     title: "Laptop HP Pavilion Core i5",
-    description: "HP Pavilion con procesador Intel Core i5 11va generación, 8GB RAM, 512GB SSD. Perfecta para programación y diseño. Batería dura 6 horas. Incluye cargador original.",
-    price: 520.00,
+    description:
+      "HP Pavilion con procesador Intel Core i5 11va generación, 8GB RAM, 512GB SSD. Perfecta para programación y diseño. Batería dura 6 horas. Incluye cargador original.",
+    price: 520.0,
     category: "Electrónica",
     condition: "good",
     location: "FIEC",
@@ -150,8 +182,9 @@ export const mockItems: Item[] = [
   {
     id: 3,
     title: "Mochila North Face Borealis",
-    description: "Mochila original North Face Borealis en color negro. Perfecta para llevar laptop de hasta 15 pulgadas. Muy cómoda y resistente.",
-    price: 75.00,
+    description:
+      "Mochila original North Face Borealis en color negro. Perfecta para llevar laptop de hasta 15 pulgadas. Muy cómoda y resistente.",
+    price: 75.0,
     category: "Ropa y Accesorios",
     condition: "like_new",
     location: "Campus Prosperina",
@@ -166,8 +199,9 @@ export const mockItems: Item[] = [
   {
     id: 4,
     title: "Raqueta Wilson Pro Staff",
-    description: "Raqueta de tenis Wilson Pro Staff 97. Usada por una temporada. Grip nuevo. Ideal para jugadores intermedios.",
-    price: 95.00,
+    description:
+      "Raqueta de tenis Wilson Pro Staff 97. Usada por una temporada. Grip nuevo. Ideal para jugadores intermedios.",
+    price: 95.0,
     category: "Deportes",
     condition: "good",
     location: "Canchas ESPOL",
@@ -182,8 +216,9 @@ export const mockItems: Item[] = [
   {
     id: 5,
     title: "Tutorías de Cálculo I y II",
-    description: "Ofrezco tutorías personalizadas de Cálculo I y II. Soy estudiante de matemáticas con experiencia. $10/hora. Disponible fines de semana.",
-    price: 10.00,
+    description:
+      "Ofrezco tutorías personalizadas de Cálculo I y II. Soy estudiante de matemáticas con experiencia. $10/hora. Disponible fines de semana.",
+    price: 10.0,
     category: "Servicios",
     condition: "new_item",
     location: "Biblioteca",
@@ -198,8 +233,9 @@ export const mockItems: Item[] = [
   {
     id: 6,
     title: "Guitarra Acústica Yamaha F310",
-    description: "Guitarra acústica Yamaha F310, perfecta para principiantes. Incluye funda, capo y cuerdas de repuesto.",
-    price: 150.00,
+    description:
+      "Guitarra acústica Yamaha F310, perfecta para principiantes. Incluye funda, capo y cuerdas de repuesto.",
+    price: 150.0,
     category: "Instrumentos Musicales",
     condition: "good",
     location: "FADCOM",
@@ -214,8 +250,9 @@ export const mockItems: Item[] = [
   {
     id: 7,
     title: "Escritorio Plegable para Estudiante",
-    description: "Escritorio plegable ideal para espacios pequeños. Color blanco, superficie de 80x50cm. Fácil de transportar.",
-    price: 65.00,
+    description:
+      "Escritorio plegable ideal para espacios pequeños. Color blanco, superficie de 80x50cm. Fácil de transportar.",
+    price: 65.0,
     category: "Muebles",
     condition: "acceptable",
     location: "Campus Gustavo Galindo",
@@ -230,8 +267,9 @@ export const mockItems: Item[] = [
   {
     id: 8,
     title: "Bicicleta MTB Aro 26",
-    description: "Bicicleta montañera aro 26, 21 velocidades. Marco de aluminio. Perfecta para moverse por el campus.",
-    price: 180.00,
+    description:
+      "Bicicleta montañera aro 26, 21 velocidades. Marco de aluminio. Perfecta para moverse por el campus.",
+    price: 180.0,
     category: "Vehículos",
     condition: "good",
     location: "Parqueadero FIEC",
@@ -246,22 +284,29 @@ export const mockItems: Item[] = [
 ];
 
 // Helper functions
-export const getSellerById = (id: number): Seller | undefined => 
-  mockSellers.find(seller => seller.id === id);
+export const getSellerById = (id: number): Seller | undefined =>
+  mockSellers.find((seller) => seller.id === id);
 
-export const getItemById = (id: number): Item | undefined => 
-  mockItems.find(item => item.id === id);
+export const getItemById = (id: number): Item | undefined =>
+  mockItems.find((item) => item.id === id);
 
-export const getItemsBySeller = (sellerId: number): Item[] => 
-  mockItems.filter(item => item.sellerId === sellerId);
+export const getItemsBySeller = (sellerId: number): Item[] =>
+  mockItems.filter((item) => item.sellerId === sellerId);
 
-export const getItemsByCategory = (category: string): Item[] => 
-  mockItems.filter(item => item.category === category);
+export const getItemsByCategory = (category: string): Item[] =>
+  mockItems.filter((item) => item.category === category);
 
-export const getFeaturedItems = (): Item[] => 
-  mockItems.filter(item => item.status === 'active').sort((a, b) => b.views - a.views).slice(0, 4);
+export const getFeaturedItems = (): Item[] =>
+  mockItems
+    .filter((item) => item.status === "active")
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 4);
 
-export const getRecentItems = (): Item[] => 
-  mockItems.filter(item => item.status === 'active').sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  ).slice(0, 8);
+export const getRecentItems = (): Item[] =>
+  mockItems
+    .filter((item) => item.status === "active")
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 8);
