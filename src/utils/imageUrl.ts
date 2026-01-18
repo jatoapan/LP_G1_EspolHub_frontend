@@ -10,7 +10,7 @@ export function getFullImageUrl(
   relativePath: string | null | undefined,
 ): string {
   if (!relativePath) {
-    return "";
+    return "https://placehold.co/400x400/e2e8f0/64748b?text=Sin+Imagen";
   }
 
   // If it's already a full URL, return as-is
@@ -39,3 +39,6 @@ export function getFullImageUrls(
 
   return relativePaths.map(getFullImageUrl);
 }
+
+// Alias for backwards compatibility
+export const getImageUrl = getFullImageUrl;

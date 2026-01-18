@@ -50,10 +50,13 @@ export async function getAnnouncements(
 export async function searchAnnouncements(
   params: AnnouncementQueryParams = {},
 ): Promise<AnnouncementsResponse> {
+  // Use /announcements (index) instead of /announcements/search
+  // because index uses SearchService which applies all filters
+  // while search only applies the text search (q parameter)
   const queryString = buildQueryString(params);
   const url = queryString
-    ? `/announcements/search?${queryString}`
-    : "/announcements/search";
+    ? `/announcements?${queryString}`
+    : "/announcements";
 
   const response = await apiClient.get<{ data: Announcement[]; meta: ApiMeta }>(
     url,

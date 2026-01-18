@@ -48,3 +48,11 @@ export async function getSellerAnnouncements(
   );
   return response.data.data;
 }
+
+// Get all announcements for the authenticated user (includes reserved/sold)
+export async function getMyAnnouncements(): Promise<Announcement[]> {
+  const response = await apiClient.get<ApiSuccessResponse<Announcement[]>>(
+    `/sellers/me/announcements`,
+  );
+  return response.data.data;
+}

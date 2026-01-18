@@ -57,7 +57,7 @@ export interface AnnouncementAttributes {
   condition: ConditionKey;
   location: string | null;
   status: AnnouncementStatus;
-  views: number;
+  views_count: number;
   created_at: string;
   updated_at: string;
   images: string[];
