@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FACULTIES } from '@/data/mockData';
+import { FACULTIES } from '@/types/enums';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { Faculty } from '@/types';
 
 const registerSchema = z.object({
   name: z
@@ -43,6 +45,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register: registerUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,11 +71,22 @@ const Register = () => {
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    toast.success('¡Cuenta creada exitosamente!');
-    navigate('/');
+    try {
+      await registerUser({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        faculty: data.faculty as Faculty,
+        password: data.password,
+        password_confirmation: data.confirmPassword,
+      });
+      toast.success('¡Cuenta creada exitosamente! Por favor inicia sesión.');
+      navigate('/login');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al crear la cuenta');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

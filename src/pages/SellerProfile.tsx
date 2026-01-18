@@ -1,26 +1,71 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Package } from 'lucide-react';
+import { ArrowLeft, MapPin, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/ProductCard';
-import { getSellerById, getItemsBySeller, mockSellers } from '@/data/mockData';
 import { CheckCircle } from 'lucide-react';
-
-const currentUser = {
-  name: mockSellers[0].name,
-  avatar: mockSellers[0].avatar,
-};
+import { useAuth } from '@/contexts/AuthContext';
+import { getPublicProfile, getSellerAnnouncements } from '@/api/sellers';
+import { PublicSeller, Announcement } from '@/types';
+import { getMockSellerById, getMockAnnouncementsBySeller } from '@/data/mockData';
 
 const SellerProfile = () => {
   const { id } = useParams<{ id: string }>();
-  const seller = getSellerById(Number(id));
-  const items = seller ? getItemsBySeller(seller.id).filter(i => i.status !== 'sold') : [];
+  const { user, isAuthenticated } = useAuth();
+  const [seller, setSeller] = useState<PublicSeller | null>(null);
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const currentUser = user ? {
+    name: user.attributes.name,
+    avatar: undefined,
+  } : undefined;
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const [sellerData, announcementsData] = await Promise.all([
+          getPublicProfile(Number(id)),
+          getSellerAnnouncements(Number(id)),
+        ]);
+        setSeller(sellerData);
+        setItems(announcementsData.filter(i => i.attributes.status !== 'sold'));
+      } catch (error) {
+        console.error('Error fetching seller data, using mock data:', error);
+        // Fallback to mock data
+        const mockSeller = getMockSellerById(id);
+        if (mockSeller) {
+          setSeller(mockSeller as unknown as PublicSeller);
+          const mockItems = getMockAnnouncementsBySeller(id)
+            .filter(i => i.attributes.status !== 'sold');
+          setItems(mockItems);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <Layout isLoggedIn={isAuthenticated} user={currentUser}>
+        <div className="container py-16 text-center">
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!seller) {
     return (
-      <Layout isLoggedIn={true} user={currentUser}>
+      <Layout isLoggedIn={isAuthenticated} user={currentUser}>
         <div className="container py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Vendedor no encontrado</h1>
           <Button asChild>
@@ -31,13 +76,8 @@ const SellerProfile = () => {
     );
   }
 
-  const joinDate = new Date(seller.joinedDate).toLocaleDateString('es-EC', {
-    month: 'long',
-    year: 'numeric'
-  });
-
   return (
-    <Layout isLoggedIn={true} user={currentUser}>
+    <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       <div className="container py-6">
         {/* Back Button */}
         <Button variant="ghost" asChild className="mb-6 -ml-2">
@@ -51,49 +91,40 @@ const SellerProfile = () => {
         <div className="bg-card rounded-xl border border-border p-6 mb-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <Avatar className="h-24 w-24 border-4 border-primary/20">
-              <AvatarImage src={seller.avatar} alt={seller.name} />
               <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                {seller.name.charAt(0)}
+                {seller.attributes.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
 
             <div className="flex-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                <h1 className="text-2xl font-bold text-foreground">{seller.name}</h1>
-                {seller.isVerified && (
-                  <CheckCircle className="h-5 w-5 text-primary" />
-                )}
+                <h1 className="text-2xl font-bold text-foreground">{seller.attributes.name}</h1>
+                <CheckCircle className="h-5 w-5 text-primary" />
               </div>
 
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm text-muted-foreground mb-4">
-                <Badge variant="secondary">{seller.faculty}</Badge>
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  Miembro desde {joinDate}
-                </div>
+                <Badge variant="secondary">{seller.attributes.faculty}</Badge>
                 <div className="flex items-center gap-1">
                   <Package className="h-4 w-4" />
                   {items.length} anuncio{items.length !== 1 ? 's' : ''} activo{items.length !== 1 ? 's' : ''}
                 </div>
               </div>
 
-              {seller.isVerified && (
-                <Badge className="bg-primary/10 text-primary border-primary/20">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Estudiante Verificado
-                </Badge>
-              )}
+              <Badge className="bg-primary/10 text-primary border-primary/20">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Estudiante Verificado
+              </Badge>
             </div>
           </div>
         </div>
 
         {/* Seller's Items */}
         <section>
-          <h2 className="text-xl font-semibold mb-6">Anuncios de {seller.name}</h2>
+          <h2 className="text-xl font-semibold mb-6">Anuncios de {seller.attributes.name}</h2>
           {items.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {items.map(item => (
-                <ProductCard key={item.id} item={item} />
+                <ProductCard key={item.id} announcement={item} />
               ))}
             </div>
           ) : (

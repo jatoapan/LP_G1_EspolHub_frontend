@@ -1,25 +1,22 @@
 import { Link } from "react-router-dom";
-import { Heart, Eye, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  Item,
-  CONDITIONS,
-  CONDITION_COLORS,
-  getSellerById,
-} from "@/data/mockData";
+import { Announcement } from "@/types";
+import { CONDITIONS, CONDITION_COLORS } from "@/types/enums";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface ProductCardProps {
-  item: Item;
+  announcement: Announcement;
   className?: string;
 }
 
-export const ProductCard = ({ item, className }: ProductCardProps) => {
-  const seller = getSellerById(item.sellerId);
-  const conditionLabel = CONDITIONS[item.condition];
-  const conditionColor = CONDITION_COLORS[item.condition];
+export const ProductCard = ({ announcement, className }: ProductCardProps) => {
+  const { attributes } = announcement;
+  const conditionLabel = CONDITIONS[attributes.condition];
+  const conditionColor = CONDITION_COLORS[attributes.condition];
+  const price = typeof attributes.price === 'string' ? parseFloat(attributes.price) : attributes.price;
 
   return (
     <Card
@@ -28,40 +25,29 @@ export const ProductCard = ({ item, className }: ProductCardProps) => {
         className,
       )}
     >
-      <Link to={`/product/${item.id}`} className="block">
+      <Link to={`/product/${announcement.id}`} className="block">
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-secondary">
           <img
-            src={item.images[0]}
-            alt={item.title}
+            src={getImageUrl(attributes.images?.[0])}
+            alt={attributes.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
           />
 
           {/* Status Badge */}
-          {item.status === "reserved" && (
+          {attributes.status === "reserved" && (
             <Badge className="absolute top-2 left-2 bg-warning text-warning-foreground border-none">
               Reservado
             </Badge>
           )}
-          {item.status === "sold" && (
+          {attributes.status === "sold" && (
             <Badge className="absolute top-2 left-2 bg-muted text-muted-foreground border-none">
               Vendido
             </Badge>
           )}
 
-          {/* Favorite Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-card/80 backdrop-blur hover:bg-card shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.preventDefault();
-              // TODO: Handle favorite
-            }}
-          >
-            <Heart className="h-4 w-4" />
-          </Button>
+
         </div>
 
         {/* Content */}
@@ -69,7 +55,7 @@ export const ProductCard = ({ item, className }: ProductCardProps) => {
           {/* Price */}
           <div className="flex items-baseline justify-between gap-2 mb-1">
             <span className="text-lg font-bold text-foreground">
-              ${item.price.toFixed(2)}
+              ${price.toFixed(2)}
             </span>
             <Badge
               variant="outline"
@@ -81,18 +67,14 @@ export const ProductCard = ({ item, className }: ProductCardProps) => {
 
           {/* Title */}
           <h3 className="font-medium text-sm line-clamp-2 text-foreground mb-2 group-hover:text-primary transition-colors">
-            {item.title}
+            {attributes.title}
           </h3>
 
-          {/* Location & Views */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              <span className="truncate max-w-[100px]">{item.location}</span>
-            </div>
+          {/* Views */}
+          <div className="flex items-center justify-end text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <Eye className="h-3 w-3" />
-              <span>{item.views}</span>
+              <span>{attributes.views_count}</span>
             </div>
           </div>
         </CardContent>

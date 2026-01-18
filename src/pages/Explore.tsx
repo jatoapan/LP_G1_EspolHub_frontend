@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,102 +12,235 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/ProductCard';
-import { 
-  mockItems, 
-  CATEGORIES, 
-  CONDITIONS, 
-  SORT_OPTIONS,
-  mockSellers,
-  ConditionKey 
-} from '@/data/mockData';
-
-const currentUser = {
-  name: mockSellers[0].name,
-  avatar: mockSellers[0].avatar,
-};
+import { CONDITIONS, SORT_OPTIONS, ConditionKey } from '@/types/enums';
+import { searchAnnouncements } from '@/api/announcements';
+import { getCategories } from '@/api/categories';
+import { useAuth } from '@/contexts/AuthContext';
+import { Announcement, Category } from '@/types';
+import { mockCategories, mockAnnouncements } from '@/data/mockData';
 
 const Explore = () => {
+  const { user, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    searchParams.get('category') ? [searchParams.get('category')!] : []
-  );
-  const [selectedConditions, setSelectedConditions] = useState<ConditionKey[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'recent');
+  
+  // State for filters (single selection for category and condition - backend limitation)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCondition, setSelectedCondition] = useState<ConditionKey | null>(null);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [sortBy, setSortBy] = useState('recent');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [maxPrice, setMaxPrice] = useState(1000); // Default, se actualiza dinámicamente
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  
+  const isInitialized = useRef(false);
 
-  const maxPrice = Math.max(...mockItems.map(item => item.price));
+  const currentUser = user ? {
+    name: user.attributes.name,
+    avatar: undefined,
+  } : undefined;
 
-  const filteredItems = useMemo(() => {
-    let items = mockItems.filter(item => item.status !== 'sold');
+  // 1. Fetch categories and max price on mount (in parallel)
+  useEffect(() => {
+    // Fetch categories
+    getCategories()
+      .then(setCategories)
+      .catch(err => {
+        console.error('Error fetching categories, using mock data:', err);
+        setCategories(mockCategories);
+      });
+    
+    // Fetch max price (get the most expensive product)
+    searchAnnouncements({ sort: 'price_desc', per_page: 1 })
+      .then(res => {
+        if (res.data.length > 0) {
+          const highest = Number(res.data[0].attributes.price) || 1000;
+          // Round up to nearest 100
+          const newMax = Math.ceil(highest / 100) * 100 || 1000;
+          setMaxPrice(newMax);
+          setPriceRange([0, newMax]); // Update slider range
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching max price:', err);
+        // Use mock data max price as fallback
+        const mockMax = Math.max(...mockAnnouncements.map(a => Number(a.attributes.price)));
+        const newMax = Math.ceil(mockMax / 100) * 100 || 1000;
+        setMaxPrice(newMax);
+        setPriceRange([0, newMax]);
+      });
+  }, []);
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      items = items.filter(item => 
-        item.title.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query)
-      );
+  // 2. Initialize filters from URL once categories are loaded
+  useEffect(() => {
+    if (categories.length === 0) return;
+    
+    const urlQuery = searchParams.get('q') || '';
+    const urlCategory = searchParams.get('category') || '';
+    const urlCondition = searchParams.get('condition') || '';
+    const urlSort = searchParams.get('sort') || 'recent';
+    
+    if (!isInitialized.current) {
+      // First time: initialize from URL
+      isInitialized.current = true;
+      setSearchQuery(urlQuery);
+      if (urlCategory) setSelectedCategory(urlCategory);
+      if (urlCondition) setSelectedCondition(urlCondition as ConditionKey);
+      setSortBy(urlSort);
     }
+  }, [categories]);
 
-    // Category filter
-    if (selectedCategories.length > 0) {
-      items = items.filter(item => selectedCategories.includes(item.category));
+  // 2b. Sync search query when URL changes externally (nav search)
+  const urlQuery = searchParams.get('q') || '';
+  const lastUrlQuery = useRef(urlQuery);
+  
+  useEffect(() => {
+    if (!isInitialized.current) return;
+    // Only sync if URL query actually changed (not from our own setSearchParams)
+    if (urlQuery !== lastUrlQuery.current) {
+      lastUrlQuery.current = urlQuery;
+      setSearchQuery(urlQuery);
     }
+  }, [urlQuery]);
 
-    // Condition filter
-    if (selectedConditions.length > 0) {
-      items = items.filter(item => selectedConditions.includes(item.condition));
-    }
+  // 3. Update URL when filters change (after initialization)
+  useEffect(() => {
+    if (!isInitialized.current) return;
+    
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('q', searchQuery);
+    if (selectedCategory) params.set('category', selectedCategory);
+    if (selectedCondition) params.set('condition', selectedCondition);
+    if (priceRange[0] > 0) params.set('min_price', priceRange[0].toString());
+    if (priceRange[1] < maxPrice) params.set('max_price', priceRange[1].toString());
+    if (sortBy && sortBy !== 'recent') params.set('sort', sortBy);
+    
+    // Update ref to prevent loop
+    lastUrlQuery.current = searchQuery;
+    setSearchParams(params, { replace: true });
+  }, [searchQuery, selectedCategory, selectedCondition, priceRange, maxPrice, sortBy, setSearchParams]);
 
-    // Price filter
-    items = items.filter(item => item.price >= priceRange[0] && item.price <= priceRange[1]);
+  // 4. Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedCondition, priceRange, sortBy]);
 
-    // Sort
-    switch (sortBy) {
-      case 'popular':
-        items.sort((a, b) => b.views - a.views);
-        break;
-      case 'price_asc':
-        items.sort((a, b) => a.price - b.price);
-        break;
-      case 'price_desc':
-        items.sort((a, b) => b.price - a.price);
-        break;
-      case 'recent':
-      default:
-        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
+  // 5. Fetch announcements whenever filters OR page changes
+  useEffect(() => {
+    // Skip if categories haven't loaded yet
+    if (categories.length === 0) return;
+    
+    const controller = new AbortController();
+    
+    const doFetch = async () => {
+      setLoading(true);
+      
+      // Find category ID from name
+      let categoryId: number | undefined;
+      if (selectedCategory) {
+        const cat = categories.find(c => c.attributes.name === selectedCategory);
+        if (cat) categoryId = parseInt(cat.id);
+      }
+      
+      const params = {
+        q: searchQuery || undefined,
+        category_id: categoryId,
+        condition: selectedCondition || undefined,
+        min_price: priceRange[0] > 0 ? priceRange[0] : undefined,
+        max_price: priceRange[1] < maxPrice ? priceRange[1] : undefined,
+        sort: sortBy,
+        page: currentPage,
+        per_page: 12,
+      };
+      
+      try {
+        const result = await searchAnnouncements(params);
+        if (!controller.signal.aborted) {
+          setAnnouncements(result.data);
+          setTotalPages(result.meta?.total_pages || 1);
+          setTotalCount(result.meta?.total_count || result.data.length);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Error fetching announcements, using mock data:', error);
+          // Fallback to mock data with basic filtering
+          let filtered = [...mockAnnouncements];
+          if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(a => 
+              a.attributes.title.toLowerCase().includes(q) ||
+              a.attributes.description.toLowerCase().includes(q)
+            );
+          }
+          if (selectedCategory) {
+            filtered = filtered.filter(a => 
+              a.relationships?.category?.data?.attributes?.name === selectedCategory
+            );
+          }
+          if (selectedCondition) {
+            filtered = filtered.filter(a => a.attributes.condition === selectedCondition);
+          }
+          filtered = filtered.filter(a => {
+            const price = Number(a.attributes.price);
+            return price >= priceRange[0] && price <= priceRange[1];
+          });
+          setAnnouncements(filtered);
+          setTotalPages(1);
+          setTotalCount(filtered.length);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
 
-    return items;
-  }, [searchQuery, selectedCategories, selectedConditions, priceRange, sortBy]);
-
-  const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
-    );
-  };
-
-  const toggleCondition = (condition: ConditionKey) => {
-    setSelectedConditions(prev => 
-      prev.includes(condition)
-        ? prev.filter(c => c !== condition)
-        : [...prev, condition]
-    );
-  };
+    // Debounce the fetch
+    const timer = setTimeout(doFetch, 300);
+    
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, selectedCategory, selectedCondition, priceRange, sortBy, categories, maxPrice, currentPage]);
 
   const clearFilters = () => {
-    setSelectedCategories([]);
-    setSelectedConditions([]);
+    setSelectedCategory(null);
+    setSelectedCondition(null);
     setPriceRange([0, maxPrice]);
     setSearchQuery('');
+    setCurrentPage(1);
   };
 
-  const activeFilterCount = selectedCategories.length + selectedConditions.length + 
+  const activeFilterCount = (selectedCategory ? 1 : 0) + (selectedCondition ? 1 : 0) + 
     (priceRange[0] > 0 || priceRange[1] < maxPrice ? 1 : 0);
+
+  // Filter handlers - single selection (backend only supports one value)
+  const handleCategoryChange = (categoryName: string) => {
+    // Toggle: if same category clicked, deselect; otherwise select new one
+    setSelectedCategory(prev => prev === categoryName ? null : categoryName);
+  };
+
+  const handleConditionChange = (condition: ConditionKey) => {
+    // Toggle: if same condition clicked, deselect; otherwise select new one
+    setSelectedCondition(prev => prev === condition ? null : condition);
+  };
+
+  const handlePriceChange = (value: number[]) => {
+    setPriceRange(value as [number, number]);
+  };
+
+  const handleSortChange = (value: string) => {
+    setSortBy(value);
+  };
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -115,15 +248,15 @@ const Explore = () => {
       <div>
         <h3 className="font-medium mb-3">Categorías</h3>
         <div className="space-y-2 max-h-48 overflow-y-auto">
-          {CATEGORIES.map(category => (
-            <div key={category} className="flex items-center gap-2">
+          {categories.map(category => (
+            <div key={category.id} className="flex items-center gap-2">
               <Checkbox
-                id={`cat-${category}`}
-                checked={selectedCategories.includes(category)}
-                onCheckedChange={() => toggleCategory(category)}
+                id={`cat-${category.id}`}
+                checked={selectedCategory === category.attributes.name}
+                onCheckedChange={() => handleCategoryChange(category.attributes.name)}
               />
-              <Label htmlFor={`cat-${category}`} className="text-sm cursor-pointer">
-                {category}
+              <Label htmlFor={`cat-${category.id}`} className="text-sm cursor-pointer">
+                {category.attributes.name}
               </Label>
             </div>
           ))}
@@ -140,8 +273,8 @@ const Explore = () => {
             <div key={key} className="flex items-center gap-2">
               <Checkbox
                 id={`cond-${key}`}
-                checked={selectedConditions.includes(key as ConditionKey)}
-                onCheckedChange={() => toggleCondition(key as ConditionKey)}
+                checked={selectedCondition === key}
+                onCheckedChange={() => handleConditionChange(key as ConditionKey)}
               />
               <Label htmlFor={`cond-${key}`} className="text-sm cursor-pointer">
                 {label}
@@ -158,7 +291,7 @@ const Explore = () => {
         <h3 className="font-medium mb-3">Rango de Precio</h3>
         <Slider
           value={priceRange}
-          onValueChange={(value) => setPriceRange(value as [number, number])}
+          onValueChange={handlePriceChange}
           min={0}
           max={maxPrice}
           step={5}
@@ -179,31 +312,20 @@ const Explore = () => {
   );
 
   return (
-    <Layout isLoggedIn={true} user={currentUser}>
+    <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       <div className="container py-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Explorar</h1>
             <p className="text-muted-foreground">
-              {filteredItems.length} producto{filteredItems.length !== 1 ? 's' : ''} encontrado{filteredItems.length !== 1 ? 's' : ''}
+              {totalCount} producto{totalCount !== 1 ? 's' : ''} encontrado{totalCount !== 1 ? 's' : ''}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
             {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
+            <Select value={sortBy} onValueChange={handleSortChange}>
               <SelectTrigger className="w-[180px] hidden md:flex bg-card">
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
@@ -244,18 +366,18 @@ const Explore = () => {
         {/* Active Filters */}
         {activeFilterCount > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {selectedCategories.map(cat => (
-              <Badge key={cat} variant="secondary" className="gap-1">
-                {cat}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => toggleCategory(cat)} />
+            {selectedCategory && (
+              <Badge variant="secondary" className="gap-1">
+                {selectedCategory}
+                <X className="h-3 w-3 cursor-pointer" onClick={() => handleCategoryChange(selectedCategory)} />
               </Badge>
-            ))}
-            {selectedConditions.map(cond => (
-              <Badge key={cond} variant="secondary" className="gap-1">
-                {CONDITIONS[cond]}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => toggleCondition(cond)} />
+            )}
+            {selectedCondition && (
+              <Badge variant="secondary" className="gap-1">
+                {CONDITIONS[selectedCondition]}
+                <X className="h-3 w-3 cursor-pointer" onClick={() => handleConditionChange(selectedCondition)} />
               </Badge>
-            ))}
+            )}
             <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 text-xs">
               Limpiar todo
             </Button>
@@ -273,12 +395,43 @@ const Explore = () => {
 
           {/* Product Grid */}
           <div className="flex-1">
-            {filteredItems.length > 0 ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredItems.map((item) => (
-                  <ProductCard key={item.id} item={item} />
-                ))}
+            {loading ? (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground">Cargando...</p>
               </div>
+            ) : announcements.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                  {announcements.map((item) => (
+                    <ProductCard key={item.id} announcement={item} />
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-8">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Anterior
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-4">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-16">
                 <p className="text-muted-foreground mb-4">No se encontraron productos</p>

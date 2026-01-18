@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,19 +24,12 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Layout } from "@/components/layout/Layout";
-import {
-  CATEGORIES,
-  CONDITIONS,
-  FACULTIES,
-  mockSellers,
-  ConditionKey,
-} from "@/data/mockData";
+import { CONDITIONS, ConditionKey } from "@/types/enums";
 import { toast } from "sonner";
-
-const currentUser = {
-  name: mockSellers[0].name,
-  avatar: mockSellers[0].avatar,
-};
+import { useAuth } from "@/contexts/AuthContext";
+import { createAnnouncement } from "@/api/announcements";
+import { getCategories } from "@/api/categories";
+import { Category } from "@/types";
 
 const publishSchema = z.object({
   title: z
@@ -62,8 +55,28 @@ type PublishFormData = z.infer<typeof publishSchema>;
 
 const Publish = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<File[]>([]);
+  const [imagesPreviews, setImagesPreviews] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  const currentUser = user ? {
+    name: user.attributes.name,
+    avatar: undefined,
+  } : undefined;
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await getCategories();
+        setCategories(data);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const {
     register,
@@ -89,11 +102,14 @@ const Publish = () => {
       return;
     }
 
-    Array.from(files).forEach((file) => {
+    const newFiles = Array.from(files);
+    setImages((prev) => [...prev, ...newFiles]);
+
+    newFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
-          setImages((prev) => [...prev, e.target!.result as string]);
+          setImagesPreviews((prev) => [...prev, e.target!.result as string]);
         }
       };
       reader.readAsDataURL(file);
@@ -102,6 +118,7 @@ const Publish = () => {
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagesPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (data: PublishFormData) => {
@@ -111,12 +128,45 @@ const Publish = () => {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    toast.success("¡Anuncio publicado exitosamente!");
-    navigate("/profile?tab=listings");
+    try {
+      const category = categories.find(c => c.attributes.name === data.category);
+      if (!category) {
+        toast.error("Categoría no válida");
+        setIsLoading(false);
+        return;
+      }
+
+      await createAnnouncement({
+        title: data.title,
+        description: data.description,
+        price: parseFloat(data.price),
+        condition: data.condition as ConditionKey,
+        category_id: parseInt(category.id),
+        location: data.location,
+        images: images,
+      });
+      
+      toast.success("¡Anuncio publicado exitosamente!");
+      navigate("/profile?tab=listings");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Error al publicar el anuncio");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <Layout isLoggedIn={false}>
+        <div className="container py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">Debes iniciar sesión para publicar</h1>
+          <Button asChild>
+            <Link to="/login">Iniciar Sesión</Link>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
 
   const LOCATIONS = [
     "Campus Gustavo Galindo",
@@ -132,7 +182,7 @@ const Publish = () => {
   ];
 
   return (
-    <Layout isLoggedIn={true} user={currentUser}>
+    <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       <div className="container py-6 max-w-2xl">
         {/* Back Button */}
         <Button variant="ghost" asChild className="mb-6 -ml-2">
@@ -158,7 +208,7 @@ const Publish = () => {
                   <span className="text-muted-foreground">(máx. 5)</span>
                 </Label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                  {images.map((img, idx) => (
+                  {imagesPreviews.map((img, idx) => (
                     <div
                       key={idx}
                       className="relative aspect-square rounded-lg overflow-hidden bg-secondary"
@@ -180,7 +230,7 @@ const Publish = () => {
                     </div>
                   ))}
 
-                  {images.length < 5 && (
+                  {imagesPreviews.length < 5 && (
                     <label className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary hover:bg-accent/50 transition-colors cursor-pointer flex flex-col items-center justify-center gap-1">
                       <Upload className="h-6 w-6 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">
@@ -270,9 +320,9 @@ const Publish = () => {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    {CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.attributes.name}>
+                        {category.attributes.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -4,23 +4,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Seller } from '@/data/mockData';
+import { PublicSeller } from '@/types';
 
 interface SellerCardProps {
-  seller: Seller;
-  phone?: string;
+  seller: PublicSeller;
   showContact?: boolean;
 }
 
-export const SellerCard = ({ seller, phone, showContact = true }: SellerCardProps) => {
+export const SellerCard = ({ seller, showContact = true }: SellerCardProps) => {
+  if (!seller?.attributes) {
+    return null;
+  }
+  
+  const { attributes } = seller;
+  
   const handleWhatsAppClick = () => {
-    if (phone) {
-      const message = encodeURIComponent("¡Hola! Vi tu anuncio en EspolHub y me interesa.");
-      window.open(`https://wa.me/593${phone.slice(1)}?text=${message}`, '_blank');
+    if (attributes.whatsapp_link) {
+      window.open(attributes.whatsapp_link, '_blank');
     }
   };
-
-  const joinedYear = new Date(seller.joinedDate).getFullYear();
 
   return (
     <Card className="border-border/50">
@@ -28,9 +30,8 @@ export const SellerCard = ({ seller, phone, showContact = true }: SellerCardProp
         <div className="flex items-start gap-3">
           <Link to={`/seller/${seller.id}`}>
             <Avatar className="h-14 w-14 border-2 border-primary/20">
-              <AvatarImage src={seller.avatar} alt={seller.name} />
               <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {seller.name.charAt(0)}
+                {attributes.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
           </Link>
@@ -41,24 +42,18 @@ export const SellerCard = ({ seller, phone, showContact = true }: SellerCardProp
                 to={`/seller/${seller.id}`}
                 className="font-semibold text-foreground hover:text-primary transition-colors truncate"
               >
-                {seller.name}
+                {attributes.name}
               </Link>
-              {seller.isVerified && (
-                <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-              )}
+              <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
               <Badge variant="secondary" className="text-xs font-normal">
-                {seller.faculty}
+                {attributes.faculty}
               </Badge>
-              <div className="flex items-center gap-1 text-xs">
-                <Calendar className="h-3 w-3" />
-                Desde {joinedYear}
-              </div>
             </div>
 
-            {showContact && phone && (
+            {showContact && attributes.whatsapp_link && (
               <Button 
                 onClick={handleWhatsAppClick}
                 className="w-full gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"

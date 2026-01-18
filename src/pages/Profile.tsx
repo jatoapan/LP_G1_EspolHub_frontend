@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Package, 
@@ -10,7 +10,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Phone,
-  Mail
+  Mail,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,82 +34,157 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { Layout } from '@/components/layout/Layout';
-import { ProductCard } from '@/components/ProductCard';
-import { 
-  mockSellers, 
-  getItemsBySeller, 
-  FACULTIES,
-  CONDITIONS,
-  CONDITION_COLORS,
-  Item
-} from '@/data/mockData';
+import { CONDITIONS, CONDITION_COLORS, FACULTIES } from '@/types/enums';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-// Simulated current user
-const currentSeller = mockSellers[0];
-const currentUser = {
-  name: currentSeller.name,
-  avatar: currentSeller.avatar,
-};
+import { useAuth } from '@/contexts/AuthContext';
+import { getSellerAnnouncements, updateProfile, deleteAccount } from '@/api/sellers';
+import { markAsSold, deleteAnnouncement, reserveAnnouncement } from '@/api/announcements';
+import { Announcement, Faculty } from '@/types';
+import { getImageUrl } from '@/utils/imageUrl';
 
 const Profile = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'listings';
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout, refreshUser } = useAuth();
   
-  const [myItems, setMyItems] = useState<Item[]>(getItemsBySeller(currentSeller.id));
+  const [myItems, setMyItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState({
-    name: currentSeller.name,
-    phone: currentSeller.phone,
-    faculty: currentSeller.faculty,
+    name: '',
+    phone: '',
+    faculty: '' as Faculty,
   });
 
-  const handleMarkAsSold = (itemId: number) => {
-    setMyItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, status: 'sold' as const } : item
-    ));
-    toast.success('Artículo marcado como vendido');
+  const currentUser = user ? {
+    name: user.attributes.name,
+    avatar: undefined,
+  } : undefined;
+
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.attributes.name,
+        phone: user.attributes.phone,
+        faculty: user.attributes.faculty,
+      });
+      
+      // Fetch user's announcements
+      const fetchAnnouncements = async () => {
+        try {
+          const data = await getSellerAnnouncements(parseInt(user.id));
+          setMyItems(data);
+        } catch (error) {
+          console.error('Error fetching announcements:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAnnouncements();
+    }
+  }, [user]);
+
+  if (!isAuthenticated || !user) {
+    return (
+      <Layout isLoggedIn={false}>
+        <div className="container py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">Debes iniciar sesión</h1>
+          <Button asChild>
+            <Link to="/login">Iniciar Sesión</Link>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  const handleMarkAsSold = async (itemId: string) => {
+    try {
+      await markAsSold(parseInt(itemId));
+      setMyItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, attributes: { ...item.attributes, status: 'sold' as const } } 
+          : item
+      ));
+      toast.success('Artículo marcado como vendido');
+    } catch (error) {
+      toast.error('Error al marcar como vendido');
+    }
   };
 
-  const handleDeleteItem = (itemId: number) => {
-    setMyItems(prev => prev.filter(item => item.id !== itemId));
-    toast.success('Anuncio eliminado');
+  const handleReserve = async (itemId: string) => {
+    try {
+      await reserveAnnouncement(parseInt(itemId));
+      setMyItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, attributes: { ...item.attributes, status: 'reserved' as const } } 
+          : item
+      ));
+      toast.success('Artículo marcado como reservado');
+    } catch (error) {
+      toast.error('Error al reservar');
+    }
   };
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      await deleteAnnouncement(parseInt(itemId));
+      setMyItems(prev => prev.filter(item => item.id !== itemId));
+      toast.success('Anuncio eliminado');
+    } catch (error) {
+      toast.error('Error al eliminar el anuncio');
+    }
+  };
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Perfil actualizado correctamente');
+    try {
+      await updateProfile({
+        seller: {
+          name: profileData.name,
+          phone: profileData.phone,
+          faculty: profileData.faculty,
+        }
+      });
+      await refreshUser();
+      toast.success('Perfil actualizado correctamente');
+    } catch (error) {
+      toast.error('Error al actualizar el perfil');
+    }
   };
 
-  const handleDeleteAccount = () => {
-    toast.success('Cuenta eliminada. Redirigiendo...');
-    // In real app: redirect to home
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      await logout(false); // Don't show logout toast
+      toast.success('Cuenta eliminada exitosamente');
+      navigate('/');
+    } catch (error) {
+      toast.error('Error al eliminar la cuenta');
+    }
   };
 
-  const activeItems = myItems.filter(i => i.status === 'active');
-  const reservedItems = myItems.filter(i => i.status === 'reserved');
-  const soldItems = myItems.filter(i => i.status === 'sold');
+  const activeItems = myItems.filter(i => i.attributes.status === 'active');
+  const reservedItems = myItems.filter(i => i.attributes.status === 'reserved');
+  const soldItems = myItems.filter(i => i.attributes.status === 'sold');
 
   return (
-    <Layout isLoggedIn={true} user={currentUser}>
+    <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       <div className="container py-6 max-w-4xl">
         {/* Profile Header */}
         <div className="flex items-center gap-4 mb-8">
           <Avatar className="h-20 w-20 border-4 border-primary/20">
-            <AvatarImage src={currentSeller.avatar} />
             <AvatarFallback className="bg-primary/10 text-primary text-xl">
-              {currentSeller.name.charAt(0)}
+              {user.attributes.name.charAt(0)}
             </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-bold">{currentSeller.name}</h1>
-              {currentSeller.isVerified && (
-                <CheckCircle className="h-5 w-5 text-primary" />
-              )}
+              <h1 className="text-2xl font-bold">{user.attributes.name}</h1>
+              <CheckCircle className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-muted-foreground">{currentSeller.email}</p>
-            <Badge variant="secondary" className="mt-2">{currentSeller.faculty}</Badge>
+            <p className="text-muted-foreground">{user.attributes.email}</p>
+            <Badge variant="secondary" className="mt-2">{user.attributes.faculty}</Badge>
           </div>
         </div>
 
@@ -158,14 +234,18 @@ const Profile = () => {
             {/* Items List */}
             <div className="space-y-4">
               {myItems.length > 0 ? (
-                myItems.map(item => (
-                  <Card key={item.id} className={cn(item.status === 'sold' && 'opacity-60')}>
+                myItems.map(item => {
+                  const price = typeof item.attributes.price === 'string' 
+                    ? parseFloat(item.attributes.price) 
+                    : item.attributes.price;
+                  return (
+                  <Card key={item.id} className={cn(item.attributes.status === 'sold' && 'opacity-60')}>
                     <CardContent className="p-4">
                       <div className="flex gap-4">
                         <Link to={`/product/${item.id}`} className="flex-shrink-0">
                           <img 
-                            src={item.images[0]} 
-                            alt={item.title}
+                            src={getImageUrl(item.attributes.images?.[0])} 
+                            alt={item.attributes.title}
                             className="w-24 h-24 rounded-lg object-cover"
                           />
                         </Link>
@@ -175,41 +255,58 @@ const Profile = () => {
                               to={`/product/${item.id}`}
                               className="font-semibold hover:text-primary transition-colors truncate"
                             >
-                              {item.title}
+                              {item.attributes.title}
                             </Link>
                             <Badge 
-                              variant={item.status === 'active' ? 'default' : 'secondary'}
+                              variant={item.attributes.status === 'active' ? 'default' : 'secondary'}
                               className={cn(
-                                item.status === 'reserved' && 'bg-warning text-warning-foreground',
-                                item.status === 'sold' && 'bg-success text-success-foreground'
+                                item.attributes.status === 'reserved' && 'bg-warning text-warning-foreground',
+                                item.attributes.status === 'sold' && 'bg-success text-success-foreground'
                               )}
                             >
-                              {item.status === 'active' && 'Activo'}
-                              {item.status === 'reserved' && 'Reservado'}
-                              {item.status === 'sold' && 'Vendido'}
+                              {item.attributes.status === 'active' && 'Activo'}
+                              {item.attributes.status === 'reserved' && 'Reservado'}
+                              {item.attributes.status === 'sold' && 'Vendido'}
                             </Badge>
                           </div>
-                          <p className="text-lg font-bold text-primary mb-2">${item.price.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-primary mb-2">${price.toFixed(2)}</p>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Eye className="h-4 w-4" />
-                              {item.views}
+                              {item.attributes.views_count}
                             </span>
-                            <Badge variant="outline" className={cn("text-xs border", CONDITION_COLORS[item.condition])}>
-                              {CONDITIONS[item.condition]}
+                            <Badge variant="outline" className={cn("text-xs border", CONDITION_COLORS[item.attributes.condition])}>
+                              {CONDITIONS[item.attributes.condition]}
                             </Badge>
                           </div>
                         </div>
                         
                         {/* Actions */}
-                        {item.status !== 'sold' && (
-                          <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
+                          {/* Editar - solo si no está vendido */}
+                          {item.attributes.status !== 'sold' && (
                             <Button variant="outline" size="sm" asChild>
                               <Link to={`/edit/${item.id}`}>
                                 <Edit className="h-4 w-4 mr-1" />
                                 Editar
                               </Link>
                             </Button>
+                          )}
+                          
+                          {/* Reservar - solo si está activo */}
+                          {item.attributes.status === 'active' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleReserve(item.id)}
+                            >
+                              <Clock className="h-4 w-4 mr-1" />
+                              Reservar
+                            </Button>
+                          )}
+                          
+                          {/* Vendido - si no está vendido */}
+                          {item.attributes.status !== 'sold' && (
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -218,7 +315,10 @@ const Profile = () => {
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Vendido
                             </Button>
-                            <AlertDialog>
+                          )}
+                          
+                          {/* Eliminar - siempre */}
+                          <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
                                   <Trash2 className="h-4 w-4" />
@@ -242,12 +342,11 @@ const Profile = () => {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                )})
               ) : (
                 <div className="text-center py-16 bg-secondary/50 rounded-xl">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -286,7 +385,7 @@ const Profile = () => {
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <Input
                         id="email"
-                        value={currentSeller.email}
+                        value={user.attributes.email}
                         disabled
                         className="bg-secondary"
                       />

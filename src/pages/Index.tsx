@@ -1,30 +1,60 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout/Layout";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryCard } from "@/components/CategoryCard";
-import {
-  categoryIcons,
-  CATEGORIES,
-  getFeaturedItems,
-  getRecentItems,
-  mockItems,
-  mockSellers,
+import { 
+  categoryIcons, 
+  mockCategories, 
+  getMockPopularAnnouncements, 
+  getMockRecentAnnouncements 
 } from "@/data/mockData";
-
-// Simulated logged-in user for demo
-const currentUser = {
-  name: mockSellers[0].name,
-  avatar: mockSellers[0].avatar,
-};
+import { getPopularAnnouncements, getRecentAnnouncements } from "@/api/announcements";
+import { getCategories } from "@/api/categories";
+import { useAuth } from "@/contexts/AuthContext";
+import { Announcement, Category } from "@/types";
 
 const Index = () => {
-  const featuredItems = getFeaturedItems();
-  const recentItems = getRecentItems();
+  const { user, isAuthenticated } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [featuredItems, setFeaturedItems] = useState<Announcement[]>([]);
+  const [recentItems, setRecentItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [categoriesData, popularData, recentData] = await Promise.all([
+          getCategories(),
+          getPopularAnnouncements({ per_page: 4 }),
+          getRecentAnnouncements({ per_page: 4 }),
+        ]);
+        setCategories(categoriesData);
+        setFeaturedItems(popularData.data);
+        setRecentItems(recentData.data);
+      } catch (error) {
+        console.error("Error fetching data, using mock data:", error);
+        // Fallback to mock data
+        setCategories(mockCategories);
+        setFeaturedItems(getMockPopularAnnouncements());
+        setRecentItems(getMockRecentAnnouncements().slice(0, 4));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const currentUser = user ? {
+    name: user.attributes.name,
+    avatar: undefined,
+  } : undefined;
 
   return (
-    <Layout isLoggedIn={true} user={currentUser}>
+    <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/30">
         <div className="container py-12 md:py-20">
@@ -71,17 +101,14 @@ const Index = () => {
           </Link>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-5 lg:grid-cols-10 md:overflow-visible">
-          {CATEGORIES.map((category) => {
-            const Icon = categoryIcons[category];
-            const count = mockItems.filter(
-              (item) => item.category === category,
-            ).length;
+          {categories.map((category) => {
+            const Icon = categoryIcons[category.attributes.name] || categoryIcons["Otros"];
             return (
               <CategoryCard
-                key={category}
-                name={category}
+                key={category.id}
+                name={category.attributes.name}
                 icon={Icon}
-                count={count}
+                count={category.attributes.announcements_count}
                 className="flex-shrink-0"
               />
             );
@@ -107,7 +134,7 @@ const Index = () => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {featuredItems.map((item) => (
-            <ProductCard key={item.id} item={item} />
+            <ProductCard key={item.id} announcement={item} />
           ))}
         </div>
       </section>
@@ -127,7 +154,7 @@ const Index = () => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {recentItems.map((item) => (
-            <ProductCard key={item.id} item={item} />
+            <ProductCard key={item.id} announcement={item} />
           ))}
         </div>
       </section>

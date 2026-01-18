@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -24,11 +25,13 @@ export const Header = ({ isLoggedIn = false, user }: HeaderProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/explore?q=${encodeURIComponent(searchQuery)}`);
+      navigate(`/explore?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
     }
   };
 
@@ -63,13 +66,6 @@ export const Header = ({ isLoggedIn = false, user }: HeaderProps) => {
         <nav className="hidden md:flex items-center gap-2">
           {isLoggedIn ? (
             <>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-medium text-primary-foreground flex items-center justify-center">
-                  3
-                </span>
-              </Button>
-              
               <Button asChild className="gap-2 shadow-primary hover:shadow-lg transition-shadow">
                 <Link to="/publish">
                   <Plus className="h-4 w-4" />
@@ -108,20 +104,14 @@ export const Header = ({ isLoggedIn = false, user }: HeaderProps) => {
                       Mi Perfil
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile?tab=listings" className="cursor-pointer">
-                      <Package className="mr-2 h-4 w-4" />
-                      Mis Anuncios
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile?tab=settings" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Configuración
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer">
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                    onClick={() => {
+                      logout();
+                      navigate('/');
+                    }}
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     Cerrar Sesión
                   </DropdownMenuItem>
