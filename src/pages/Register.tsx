@@ -83,7 +83,10 @@ const Register = () => {
       toast.success('¡Cuenta creada exitosamente! Por favor inicia sesión.');
       navigate('/login');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al crear la cuenta');
+      const mensajeError = error.response?.data?.errors
+        ? Object.values(error.response.data.errors).flat().join('. ')
+        : 'Error al crear la cuenta';
+      toast.error(mensajeError);
     } finally {
       setIsLoading(false);
     }

@@ -43,7 +43,9 @@ export function hasValidToken(): boolean {
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
-    if (token && config.headers) {
+    const isAuthRequest = config.url?.includes('/login') || config.url?.includes('/register');
+
+    if (token && config.headers && !isAuthRequest) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -77,7 +79,9 @@ apiClient.interceptors.response.use(
     };
 
     // If not 401 or no config, reject immediately
-    if (error.response?.status !== 401 || !originalRequest) {
+    if (error.response?.status === 401 && !originalRequest.url?.includes("/login")) {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
       return Promise.reject(error);
     }
 

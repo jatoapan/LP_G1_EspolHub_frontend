@@ -13,9 +13,7 @@ interface LoginRequest {
 }
 
 export async function login(credentials: LoginRequest): Promise<AuthTokens> {
-  const payload = {
-    seller: credentials,
-  };
+  const payload = credentials;
   const response = await apiClient.post<ApiSuccessResponse<AuthTokens>>(
     "/login",
     payload,

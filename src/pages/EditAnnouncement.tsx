@@ -169,14 +169,19 @@ const EditAnnouncement = () => {
         return;
       }
 
-      await updateAnnouncement(Number(id), {
+      const payload: any = {
         title: data.title,
         description: data.description,
         price: parseFloat(data.price),
         condition: data.condition as ConditionKey,
-        category_id: parseInt(category.id),
-        images: newImages.length > 0 ? newImages : undefined,
-      });
+        category_id: parseInt(category.id)
+      }
+
+      if (newImages.length > 0) {
+        payload.images = newImages;
+      }
+
+      await updateAnnouncement(Number(id), payload);
       
       toast.success("¡Anuncio actualizado exitosamente!");
       navigate("/profile?tab=listings");

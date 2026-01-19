@@ -119,15 +119,15 @@ export async function createAnnouncement(
   formData.append("announcement[condition]", data.condition);
   formData.append("announcement[category_id]", data.category_id.toString());
 
+  if (data.images && data.images.length > 0) {
+    data.images.forEach((image) => {
+      formData.append("announcement[images][]", image);
+    });
+  }
   if (data.location) {
     formData.append("announcement[location]", data.location);
   }
 
-  if (data.images && data.images.length > 0) {
-    data.images.forEach((image) => {
-      formData.append("images[]", image);
-    });
-  }
 
   const response = await apiClient.post<ApiSuccessResponse<Announcement>>(
     "/announcements",
@@ -160,11 +160,11 @@ export async function updateAnnouncement(
 
   if (data.images && data.images.length > 0) {
     data.images.forEach((image) => {
-      formData.append("images[]", image);
+      formData.append("announcement[images][]", image);
     });
   }
 
-  const response = await apiClient.patch<ApiSuccessResponse<Announcement>>(
+  const response = await apiClient.put<ApiSuccessResponse<Announcement>>(
     `/announcements/${id}`,
     formData,
     {
