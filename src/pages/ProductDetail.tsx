@@ -8,10 +8,19 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Layout } from "@/components/layout/Layout";
 import { SellerCard } from "@/components/SellerCard";
 import { ProductCard } from "@/components/ProductCard";
@@ -109,6 +118,7 @@ const ProductDetail = () => {
 
   const { attributes, relationships } = announcement;
   const seller = relationships?.seller?.data;
+  const categoryName = relationships?.category?.data?.attributes?.name || "Categoría";
   const price = typeof attributes.price === 'string' ? parseFloat(attributes.price) : attributes.price;
   const conditionLabel = CONDITIONS[attributes.condition];
   const conditionColor = CONDITION_COLORS[attributes.condition];
@@ -143,12 +153,49 @@ const ProductDetail = () => {
     <Layout isLoggedIn={isAuthenticated} user={currentUser}>
       <div className="container py-6">
         {/* Back Button */}
-        <Button variant="ghost" asChild className="mb-4 -ml-2">
-          <Link to="/explore">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
-          </Link>
-        </Button>
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/" className="flex items-center gap-1">
+                  <Home className="h-3 w-3" />
+                  Inicio
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            
+            <BreadcrumbSeparator />
+            
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/explore">Explorar</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+
+            {/* Renderizar categoría solo si existe */}
+            {categoryName && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    {/* Linkea a explorar pre-filtrado por esta categoría */}
+                    <Link to={`/explore?category=${encodeURIComponent(categoryName)}`}>
+                      {categoryName}
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </>
+            )}
+
+            <BreadcrumbSeparator />
+            
+            <BreadcrumbItem>
+              <BreadcrumbPage className="font-semibold text-primary truncate max-w-[200px] md:max-w-none">
+                {attributes.title}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Image Gallery */}
