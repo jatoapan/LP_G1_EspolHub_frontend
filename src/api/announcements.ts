@@ -121,22 +121,16 @@ export async function createAnnouncement(
 
   if (data.images && data.images.length > 0) {
     data.images.forEach((image) => {
-      formData.append("announcement[images][]", image);
+      formData.append("images[]", image, image.name);
     });
   }
   if (data.location) {
     formData.append("announcement[location]", data.location);
   }
 
-
   const response = await apiClient.post<ApiSuccessResponse<Announcement>>(
     "/announcements",
     formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    },
   );
 
   return response.data.data;
@@ -160,18 +154,13 @@ export async function updateAnnouncement(
 
   if (data.images && data.images.length > 0) {
     data.images.forEach((image) => {
-      formData.append("announcement[images][]", image);
+      formData.append("images[]", image, image.name);
     });
   }
 
   const response = await apiClient.put<ApiSuccessResponse<Announcement>>(
     `/announcements/${id}`,
     formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    },
   );
 
   return response.data.data;
